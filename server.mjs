@@ -3,7 +3,7 @@ import { WebSocketServer } from 'ws';
 import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { TikTokLiveConnection, WebcastEvent } from 'tiktok-live-connector';
+import { WebcastPushConnection } from 'tiktok-live-connector';
 
 // TikTok username to connect to
 const tiktokUsername = 'grantsylvester2';
@@ -33,42 +33,40 @@ wss.on('connection', (ws) => {
 function broadcast(msg) {
   const json = JSON.stringify(msg);
   clients.forEach((ws) => {
-    if (ws.readyState === ws.OPEN) {
+    if (ws.readyState === WebSocket.OPEN) {
       ws.send(json);
     }
   });
 }
 
 // Initialize TikTok connection
-const connection = new TikTokLiveConnection(tiktokUsername);
+const tiktok = new WebcastPushConnection(tiktokUsername);
 
-// Connect to the TikTok livestream
-connection.connect().then(state => {
+tiktok.connect().then(state => {
   console.log(`✅ Connected to room ID: ${state.roomId}`);
 }).catch(err => {
-  console.error('❌ Failed to connect:', err);
+  console.error("❌ Failed to connect:", err);
 });
 
 // Listen for chat messages
-connection.on(WebcastEvent.Chat, data => {
+tiktok.on('chat', data => {
   broadcast({
     type: 'chat',
     text: data.comment,
-    sender: data.nickname || data.uniqueId
+    sender: data.uniqueId
   });
 });
 
 // Listen for gift events
-connection.on(WebcastEvent.Gift, data => {
+tiktok.on('gift', data => {
   const amount = data.diamondCount || 1;
   broadcast({
     type: 'gift',
     amount,
-    sender: data.nickname || data.uniqueId
+    sender: data.uniqueId
   });
 });
 
-// Start the server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
